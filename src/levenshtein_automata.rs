@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::cmp::min;
 
 #[derive(Eq, Hash, PartialEq, Clone, Copy)]
 enum TChar {
@@ -166,10 +167,15 @@ fn flatten(
         (head_array.borrow().len(), trns_array.borrow().len())
     };
     let has_children = node.transitions.len() > 0;
+    let trns_end = if has_children {
+        trns_start + node.transitions.len() - 1
+    } else {
+        trns_start
+    };
     let head = Head {
         has_children,
         trns_start,
-        trns_end: trns_start + node.transitions.len() - 1,
+        trns_end,
         accepting: node.accepting
     };
     {
@@ -273,16 +279,40 @@ impl LevenshteinAutomata {
 }
 
 
+pub fn levenshtein_distance(a: &str, b: &str) -> i32 {
+    let (rowstr, colstr) = (a, b);
+    let mut prev = (0..rowstr.len() as i32 + 1).collect::<Vec<i32>>();
+    let mut current = prev.clone();
+    for (uci, cchar) in colstr.chars().enumerate() {
+        current[0] = uci as i32 + 1;
+        for (uri, rchar) in rowstr.chars().enumerate() {
+            let ri = uri + 1;
+            let r_insert_d = prev[ri] + 1;
+            let r_del_d = current[ri - 1] + 1;
+            let r_match_or_sub_d =
+                if rchar == cchar { prev[ri - 1] } else { prev[ri - 1] + 1 };
+            current[ri] = min(r_match_or_sub_d, min(r_insert_d, r_del_d));
+        }
+        // swap current and prev
+        (current, prev) = (prev, current);
+    }
+    // because of the swap,
+    // prev is actually the last set of distances
+    prev[prev.len() - 1]
+}
+
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use rand::Rng;
 
     #[test]
-    fn basics() {
+    fn basic_automata() {
         let lda = LevenshteinAutomata::new("abc", 2);
 
         let expect_match = vec![
-            "abc", "ac", "a", "abcxx", "axc",
+            "abc", "ac", "aa", "a", "abcxx", "axc",
             "bbc", "aaa", "ccc", "abbbc", "aabbc"
         ];
 
@@ -292,12 +322,150 @@ mod test {
         }
 
         let expect_no_match = vec![
-            "", "xxx", "aabbcc", "abcabc"
+            "", "xxx", "aabbcc", "abcabc", "zzyzzx"
         ];
 
         for input in expect_no_match {
             println!("Expecting no match against '{}'", input);
             assert!(!lda.check(input))
+        }
+    }
+
+    #[test]
+    fn basic_distance() {
+        let pairs = vec![
+            ("abc", 0),
+            ("ac", 1),
+            ("aa", 2),
+            ("a", 2),
+            ("abcxx", 2),
+            ("axc", 1),
+            ("bbc", 1),
+            ("aaa", 2),
+            ("ccc", 2),
+            ("abbbc", 2),
+            ("aabbc", 2),
+            ("", 3),
+            ("xxx", 3),
+            ("aabbcc", 3),
+            ("abcabc", 3),
+            ("zzyzzx", 6)
+        ];
+
+        for (s, d) in pairs {
+            let res = levenshtein_distance("abc", s);
+            println!(
+                "Expecting '{}' to be distance {} from 'abc', got {}",
+                s, d, res
+            );
+            assert!(res == d);
+        }
+    }
+
+    #[test]
+    fn fuzz_automata() {
+        let mut rng = rand::thread_rng();
+        let mut rand_mutate = |s: &str, d: i8| {
+            loop {
+                let mut chars = s.chars().collect::<Vec<char>>();
+                for _ in 0..d {
+                    if (chars.len() as i8) < d {
+                        chars.push('I');
+                        continue;
+                    }
+                    match rng.gen_range(0..3) {
+                        0 => {
+                            // substitute
+                            let idx = rng.gen_range(0..chars.len());
+                            chars[idx] = 'S';
+                        },
+                        1 => {
+                            // insert
+                            let idx = rng.gen_range(0..chars.len() + 1);
+                            if idx == chars.len() {
+                                chars.push('I');
+                            } else {
+                                chars.insert(idx, 'I');
+                            }
+                        },
+                        2 => {
+                            // delete
+                            let idx = rng.gen_range(0..chars.len());
+                            chars.remove(idx);
+                        }
+                        _ => panic!("RNG outside range")
+                    }
+                }
+                let mutated = String::from_iter(chars);
+                let actual_distance = levenshtein_distance(s, &mutated);
+                if actual_distance == d as i32 {
+                    return mutated;
+                }
+            }
+        };
+
+        let test_strings = vec![
+            "",
+            "aaaaaaaaaa",
+            "bbbbaaaaaaa",
+            "babababab",
+            "abc",
+            "aaabbbccc",
+            "abbccc",
+            "quququq",
+            "asdfgaerr",
+            "session",
+            "lmao",
+            "lol",
+            "abcabcabc",
+            "aaaabbbb",
+            "2aj90v",
+            "d4gaw",
+            "dg9xx",
+            "zck6om9kl",
+            "nk3wadg",
+            "7txelyfa5v2",
+            "v6a8",
+            "5",
+            "9nic10",
+            "8y",
+            "c4ugsnjor2",
+            "sao9w4v79",
+            "o64hc79huh",
+            "k2cy053nf",
+            "l7h",
+            "eytcy",
+            "qk",
+            "x3tr2lhyfnp",
+            "n39h8tcqee",
+            "xwm",
+            "993xn68um",
+            "fukvwehhw",
+            "m6ca",
+            "vbbwwszxr2",
+            "sgeey",
+            "4eqd",
+            "26tw9qfm"
+        ];
+
+        let runs = 100;
+        let num_distances = 5;
+
+        // Number of unique tests is about
+        //  sum(len(test_strs) * runs * (d+2) for d in range(num_distances))
+        //  = 72,000
+
+        for test_str in test_strings {
+            for lda_d in 0..num_distances {
+                println!("Generating automata for {} with distance {}", test_str, lda_d);
+                let lda = LevenshteinAutomata::new(test_str, lda_d);
+                for mut_d in 0..lda_d + 2 {
+                    for _ in 0..runs {
+                        let test_case = rand_mutate(test_str, mut_d);
+                        assert!(lda.check(&test_case) == (mut_d <= lda_d));
+                    }
+                }
+            }
         }
     }
 }
