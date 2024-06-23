@@ -207,6 +207,7 @@ fn flatten(
     head_idx
 }
 
+/// No-frills implementation of a Levenshtein Automata
 pub struct LevenshteinAutomata {
     src: String,
     max_distance: i8,
@@ -215,6 +216,23 @@ pub struct LevenshteinAutomata {
 }
 
 impl LevenshteinAutomata {
+    /// Instantiates a new automata
+    /// 
+    /// # Arguments
+    /// * `src` - the string that inputs will be compared with
+    /// * `max_distance` - the maximum acceptable Levenshtein Distance
+    ///                    that the automata should account for
+    /// 
+    /// # Returns
+    /// * A new `LevenshteinAutomata` instance
+    /// 
+    /// # Examples
+    /// ```
+    /// use levenshtein_lite::LevenshteinAutomata;
+    /// let lda = LevenshteinAutomata::new("abc", 1);
+    /// assert!(lda.check("abx"));
+    /// assert!(!lda.check("axx"));
+    /// ```
     pub fn new(src: &str, max_distance: i8) -> Self {
         let lookup = RefCell::new(HashMap::new());
         let head = build(&src.chars().collect(),
@@ -234,6 +252,22 @@ impl LevenshteinAutomata {
         }
     }
 
+    /// Checks an input string against the source string
+    /// underlying the automata
+    /// 
+    /// # Arguments
+    /// * `input` - the string to check against the source
+    /// 
+    /// # Returns
+    /// * `true` if `LevenshteinDistance(src, input) <= max_distance`
+    /// 
+    /// # Examples
+    /// ```
+    /// use levenshtein_lite::LevenshteinAutomata;
+    /// let lda = LevenshteinAutomata::new("abc", 1);
+    /// assert!(lda.check("abx"));
+    /// assert!(!lda.check("axx"));
+    /// ```
     pub fn check(&self, input: &str) -> bool {
         let mut head = &self.heads[0];
         let mut accepting = head.accepting;
@@ -273,12 +307,40 @@ impl LevenshteinAutomata {
         accepting
     }
 
+    /// Returns the parameters of the automata
+    /// 
+    /// # Returns
+    /// * &src - a reference to the string parameter
+    /// * max_distance - the maximum distance paramter
+    /// 
+    /// # Examples
+    /// ```
+    /// use levenshtein_lite::LevenshteinAutomata;
+    /// let lda = LevenshteinAutomata::new("abc", 1);
+    /// let (s, d) = lda.details();
+    /// assert!((s, d) == ("abc", 1))
+    /// ```
     pub fn details(&self) -> (&str, i8) {
         (&self.src, self.max_distance)
     }
 }
 
 
+/// Computes the Leveshtein distance between two input strings
+/// 
+/// # Arguments
+/// * `a` - a string
+/// * `b` - a string
+/// 
+/// # Returns
+/// * the Levenshtein distance between `a` and `b`
+/// 
+/// # Examples
+/// ```
+/// use levenshtein_lite::levenshtein_distance;
+/// assert!(levenshtein_distance("abc", "abx") == 1);
+/// assert!(levenshtein_distance("abc", "axx") == 2);
+/// ```
 pub fn levenshtein_distance(a: &str, b: &str) -> i32 {
     let (rowstr, colstr) = (a, b);
     let mut prev = (0..rowstr.len() as i32 + 1).collect::<Vec<i32>>();

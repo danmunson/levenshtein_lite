@@ -1,7 +1,12 @@
 [package]
-name = "levenshtein_automata_lite"
+name = "levenshtein_lite"
 version = "0.1.0"
 edition = "2021"
 
 [dev-dependencies]
 rand = "0.8"
+criterion = "0.5"
+
+[[bench]]
+name = "bench"
+harness = false
