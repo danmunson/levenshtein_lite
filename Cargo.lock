@@ -236,7 +236,7 @@ dependencies = [
 
 [[package]]
 name = "levenshtein_lite"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "criterion",
  "rand",

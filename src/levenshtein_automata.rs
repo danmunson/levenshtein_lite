@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::cmp::min;
 
-#[derive(Eq, Hash, PartialEq, Clone, Copy)]
+#[derive(Eq, Hash, PartialEq, Clone, Copy, PartialOrd, Ord)]
 enum TChar {
     Char(char),
     Any
@@ -43,9 +43,16 @@ impl TempTracker {
     }
 
     pub fn key(&self) -> Vec<(TChar, SiDaccPairs)> {
-        self.transitions.iter()
-                        .map(|(&tchar, pairs)| (tchar, pairs.clone()))
-                        .collect()
+        let mut key = self.transitions
+            .iter()
+            .map(|(&tchar, pairs)| {
+                let mut sorted_pairs = pairs.clone();
+                sorted_pairs.sort();
+                (tchar, sorted_pairs)
+            })
+            .collect::<Vec<(TChar, SiDaccPairs)>>();
+        key.sort();
+        key
     }
 }
 
