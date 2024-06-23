@@ -2,6 +2,16 @@
 name = "levenshtein_lite"
 version = "0.1.0"
 edition = "2021"
+authors = ["Dan Munson <dsmunson@me.com>"]
+license = "MIT"
+categories = ["text-processing"]
+description = """No-frills implementation of a Levenshtein Automata and the Levenshtein Distance function."""
+documentation = "https://docs.rs/levenshtein_lite/"
+homepage = "https://github.com/danmunson/levenshtein_lite"
+repository = "https://github.com/danmunson/levenshtein_lite"
+readme = "README.md"
+keywords = ["levenshtein", "distance", "automata"]
+exclude = ["etc/*", ".cargo_vcs_info.json", ".gitignore"]
 
 [dev-dependencies]
 rand = "0.8"
